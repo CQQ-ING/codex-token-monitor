@@ -6,6 +6,28 @@
 
 这是基于 [codex-statusbar](https://github.com/dongyue-19/codex-statusbar) 修改的社区工具，非 OpenAI 官方产品。当前默认采用页面按钮模式。
 
+## 效果预览
+
+### 单轮用量：点击查看，不挤压正文
+
+![单轮 Token 明细浮窗：输入、输出、缓存、总量与缓存命中率](docs/images/turn-usage.png)
+
+点击回复下方的 **用量**，详情浮在页面上层；再次点击或点击空白处关闭。
+
+### 会话累计：就在上下文圆环旁边
+
+![会话累计 Token 明细，以及上下文圆环旁的数据库图标位置](docs/images/session-usage.png)
+
+输入框右侧的 **数据库图标** 显示当前会话累计用量。旁边的原生圆环仍表示上下文占用，两者互不替代。
+
+### 与复制、反馈、朗读、更多同一行
+
+![单轮用量与 Codex 原生回复功能键同一行](docs/images/reply-toolbar.png)
+
+Token 按钮直接跟随原生功能键容器显隐：最新回复一起显示，历史回复移入正文区域时一起出现，移出时一起隐藏。
+
+以上均为测试对话的真实界面截图，已裁去侧栏与其他对话。
+
 ## 下载与快速开始
 
 **普通用户下载 [Releases 中的 Windows 免安装压缩包](https://github.com/CQQ-ING/codex-token-monitor/releases/latest)，不要下载 GitHub 自动生成的 Source code 包。**
