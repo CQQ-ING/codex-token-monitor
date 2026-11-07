@@ -48,7 +48,7 @@ internal sealed class PageTokenContext : ApplicationContext
     private readonly CancellationTokenSource _stop = new();
     private readonly string _sessions;
     private readonly ConcurrentDictionary<string, Task> _pages = new();
-    private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(2) };
+    private readonly HttpClient _http = new(new HttpClientHandler { UseProxy = false }) { Timeout = TimeSpan.FromSeconds(2) };
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
     private static readonly string StateDirectory = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CodexStatusbar");
@@ -60,7 +60,7 @@ internal sealed class PageTokenContext : ApplicationContext
         {
             Icon = SystemIcons.Application,
             Text = "Codex 页面 Token · 连接中",
-            Visible = true,
+            Visible = false,
             ContextMenuStrip = new ContextMenuStrip()
         };
         _tray.ContextMenuStrip.Items.Add("Codex 页面 Token（无悬浮窗口）").Enabled = false;
@@ -87,6 +87,7 @@ internal sealed class PageTokenContext : ApplicationContext
             {
                 using var response = await _http.GetAsync($"http://127.0.0.1:{Port}/json/list", _stop.Token);
                 using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(_stop.Token));
+                Status(new { state = "page-debugger-ready", pages = _pages.Count });
                 foreach (var target in document.RootElement.EnumerateArray())
                 {
                     if (target.GetProperty("type").GetString() != "page") continue;
@@ -98,9 +99,9 @@ internal sealed class PageTokenContext : ApplicationContext
                     _pages[id] = WatchPageAsync(id, address);
                 }
             }
-            catch (Exception error) when (error is HttpRequestException or TaskCanceledException or JsonException)
+            catch (Exception error)
             {
-                Status(new { state = "waiting-for-page-debugger", port = Port });
+                Status(new { state = "waiting-for-page-debugger", port = Port, error = error.GetType().Name, detail = error.Message });
             }
             try { await Task.Delay(1500, _stop.Token); } catch (OperationCanceledException) { break; }
         }
@@ -151,10 +152,9 @@ internal sealed class PageTokenContext : ApplicationContext
                 await Task.Delay(900, _stop.Token);
             }
         }
-        catch (Exception error) when (error is WebSocketException or IOException or JsonException
-            or OperationCanceledException or InvalidOperationException or TimeoutException)
+        catch (Exception error)
         {
-            Status(new { state = "page-reconnecting", page = id, error = error.GetType().Name });
+            Status(new { state = "page-reconnecting", page = id, error = error.GetType().Name, detail = error.Message });
         }
     }
 
@@ -180,7 +180,9 @@ internal sealed class PageCdp : IDisposable
 
     public async Task ConnectAsync(string address, CancellationToken stop)
     {
-        await _socket.ConnectAsync(new Uri(address), stop);
+        using var connectTimeout = CancellationTokenSource.CreateLinkedTokenSource(stop);
+        connectTimeout.CancelAfter(TimeSpan.FromSeconds(5));
+        await _socket.ConnectAsync(new Uri(address), connectTimeout.Token);
         _ = Task.Run(ReceiveAsync);
     }
 
@@ -224,8 +226,12 @@ internal sealed class PageCdp : IDisposable
                 }
             }
         }
-        catch (Exception error) when (error is WebSocketException or OperationCanceledException or JsonException) { }
-        finally { foreach (var pending in _pending.Values) pending.TrySetCanceled(); }
+        catch (Exception) { }
+        finally
+        {
+            _socket.Abort();
+            foreach (var pending in _pending.Values) pending.TrySetCanceled();
+        }
     }
 
     public void Dispose()

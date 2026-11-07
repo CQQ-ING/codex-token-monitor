@@ -1,4 +1,10 @@
 (() => {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initialize, { once: true });
+  } else {
+    initialize();
+  }
+  function initialize() {
   if (window.__codexPageTokens) { window.__codexPageTokens.request(); return; }
   const marker = 'data-codex-token-usage';
   const snapshots = new Map();
@@ -188,6 +194,7 @@
   new MutationObserver(schedule).observe(document.body || document.documentElement, { childList: true, subtree: true });
   setInterval(() => { request(); paint(); }, 1000);
   request();
+  }
 })();
 
 
